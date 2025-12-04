@@ -59,10 +59,6 @@ fun Long.hasNSubseqs(n: Int): Boolean {
 	return true
 }
 
-fun Iterable<Int>.toInt(): Int {
-	return this.foldIndexed(
-		0,
-		{ i, acc, n ->
-			(acc + n * 10.0.pow(i.toDouble())).toInt()
-		})
+fun Iterable<Int>.toLong(): Long {
+	return this.fold(0L) { acc, n -> acc * 10 + n }
 }

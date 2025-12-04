@@ -26,6 +26,22 @@ tasks.register<JavaExec>("joltagePartOne") {
 	errorOutput = System.err
 }
 
+tasks.register<JavaExec>("testCasePartTwo") {
+	dependsOn("classes")
+	mainClass.set("TestCasePartTwo")
+	classpath = sourceSets["main"].runtimeClasspath
+	standardOutput = System.out
+	errorOutput = System.err
+}
+
+tasks.register<JavaExec>("joltagePartTwo") {
+	dependsOn("classes")
+	mainClass.set("JoltagePartTwo")
+	classpath = sourceSets["main"].runtimeClasspath
+	standardOutput = System.out
+	errorOutput = System.err
+}
+
 //tasks.register<JavaExec>("sumInvalidIdsPartOne") {
 //	dependsOn("classes")
 //	mainClass.set("SumInvalidIdsPartOne")
