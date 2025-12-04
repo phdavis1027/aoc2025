@@ -13,3 +13,7 @@ fun Project.readLines(): List<String> = readInput().lines()
 fun Project.readInputTest(): String = file("test.txt").readText().trimEnd()
 
 fun Project.readLinesTest(): List<String> = readInputTest().lines()
+
+fun Project.readDelimited(delim: String): List<String> = readInput().split(delim)
+
+fun Project.readDelimitedTest(delim: String): List<String> = readInputTest().split(delim)
