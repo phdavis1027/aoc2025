@@ -1,5 +1,7 @@
 rootProject.name = "advent_25"
 
+include("common")
+
 // Include all day subprojects
 (1..12).forEach { day ->
     val dayStr = day.toString().padStart(2, '0')

@@ -6,6 +6,10 @@ repositories {
 	mavenCentral()
 }
 
+dependencies {
+	implementation(project(":common"))
+}
+
 tasks.register<JavaExec>("testCasePartOne") {
 	dependsOn("classes")
 	mainClass.set("TestCasePartOne")
