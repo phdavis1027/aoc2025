@@ -1,14 +1,3 @@
-fun RangeTree.overlapsAny(value: Long): RangeTree.Node? {
-	fun check(node: RangeTree.Node?): RangeTree.Node? {
-		if (node == null) return null
-		if (value.overlaps(node.interval)) return node
-		val left = check(node.left)
-		if (left != null) return left
-		return check(node.right)
-	}
-	return check(root)
-}
-
 fun partOne(input: List<String>) {
 	val blankIndex = input.indexOf("")
 	val intervalLines = input.subList(0, blankIndex)
@@ -20,7 +9,7 @@ fun partOne(input: List<String>) {
 		tree.insert(Interval(low, high))
 	}
 
-	val answer = valueLines.map { it.toLong() }.count { tree.overlapsAny(it) != null }
+	val answer = valueLines.map { it.toLong() }.count { tree.intervalSearch(it) != null }
 	println("Answer: $answer")
 }
 
@@ -29,20 +18,13 @@ fun partTwo(input: List<String>) {
 	val intervalLines = input.subList(0, blankIndex)
 
 	val tree = RangeTree.empty()
-	var min = Long.MAX_VALUE
-	var max = Long.MIN_VALUE
 	for (line in intervalLines) {
 		val (low, high) = line.split("-").map { it.toLong() }
 		tree.insert(Interval(low, high))
-		if (low < min) min = low
-		if (high > max) max = high
 	}
 
-	var count = 0L
-	for (i in min..max) {
-		if (tree.overlapsAny(i) != null) count++
-	}
-	println("Answer: $count")
+	val answer = tree.sumLengths()
+	println("Answer: $answer")
 }
 
 object TestCasePartOne {
