@@ -36,6 +36,15 @@ class RangeTree {
 		return node
 	}
 
+	// Propagate max values up from a node to the root
+	private fun propagateMax(from: Node?) {
+		var node = from
+		while (node != null) {
+			node.updateMax()
+			node = node.parent
+		}
+	}
+
 	// Returns the inserted node
 	fun insert(interval: Interval): Node {
 		var z = Node.withoutChildren(interval)
@@ -65,6 +74,9 @@ class RangeTree {
 			y.right = z
 		}
 		z.color = Color.RED
+
+		// Update max values from inserted node up to root
+		propagateMax(z.parent)
 
 		return this.fixup(z)
 	}
@@ -185,6 +197,10 @@ class RangeTree {
 		y.left = x
 		x.parent = y
 
+		// Update max values: x first (now a child), then y (now the parent)
+		x.updateMax()
+		y.updateMax()
+
 		return y
 	}
 
@@ -217,6 +233,10 @@ class RangeTree {
 		x.right = y
 		y.parent = x
 
+		// Update max values: y first (now a child), then x (now the parent)
+		y.updateMax()
+		x.updateMax()
+
 		return x
 	}
 
@@ -231,7 +251,7 @@ class RangeTree {
 	private fun printNode(node: Node?, prefix: String, isLast: Boolean) {
 		if (node == null) return
 		val colorChar = if (node.color == Color.RED) "R" else "B"
-		println("$prefix${if (isLast) "└── " else "├── "}[${node.interval.low}, ${node.interval.high}]($colorChar)")
+		println("$prefix${if (isLast) "└── " else "├── "}[${node.interval.low}, ${node.interval.high}]($colorChar) max=${node.max}")
 		val childPrefix = prefix + if (isLast) "    " else "│   "
 		printNode(node.left, childPrefix, node.right == null)
 		printNode(node.right, childPrefix, true)
@@ -246,14 +266,23 @@ class RangeTree {
 		var left: Node? = null,
 		var right: Node? = null,
 		var parent: Node? = null,
-		var color: Color
+		var color: Color,
+		var max: Long
 	) {
 		fun isLeftChild() = this == this.parent!!.left
 		fun isRightChild() = this == this.parent!!.right
 
+		fun updateMax() {
+			max = maxOf(
+				interval.high,
+				left?.max ?: Long.MIN_VALUE,
+				right?.max ?: Long.MIN_VALUE
+			)
+		}
+
 		companion object {
 			fun withoutChildren(interval: Interval): Node {
-				return Node(interval, null, null, null, Color.RED)
+				return Node(interval, null, null, null, Color.RED, interval.high)
 			}
 		}
 	}
@@ -267,12 +296,15 @@ class RangeTree {
 		var y = z
 		var yOriginalColor = y.color
 		var x: Node? = z.left
+		var fixupStart: Node? = null
 		if (z.left == null) {
 			x = z.right
 			this.transplant(z, x!!)
+			fixupStart = x.parent
 		} else if (z.right == null) {
 			x = z.left
 			this.transplant(z, x!!)
+			fixupStart = x.parent
 		} else {
 			// SAFETY: We just established that both
 			// children are non-null
@@ -282,7 +314,9 @@ class RangeTree {
 			if (y.parent == z) {
 				// TODO: SAFETY: How do we know that y.right is not null?
 				x!!.parent = y
+				fixupStart = y
 			} else {
+				fixupStart = y.parent
 				this.transplant(y, y.right!!)
 				y.right = z.right
 				y.right!!.parent = y
@@ -291,7 +325,10 @@ class RangeTree {
 			y.left = z.left
 			z.left!!.parent = y
 			y.color = z.color
+			y.updateMax()
 		}
+		// Propagate max values up from the point of structural change
+		propagateMax(fixupStart)
 		if (yOriginalColor == Color.BLACK) {
 			deleteFixup(x!!)
 		}

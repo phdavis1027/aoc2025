@@ -20,8 +20,8 @@ fun partOne(input: List<String>) {
 		tree.insert(Interval(low, high))
 	}
 
-	val count = valueLines.map { it.toLong() }.count { tree.overlapsAny(it) != null }
-	println("Answer: $count")
+	val answer = valueLines.map { it.toLong() }.count { tree.overlapsAny(it) != null }
+	println("Answer: $answer")
 }
 
 fun partTwo(input: List<String>) {
@@ -29,36 +29,20 @@ fun partTwo(input: List<String>) {
 	val intervalLines = input.subList(0, blankIndex)
 
 	val tree = RangeTree.empty()
+	var min = Long.MAX_VALUE
+	var max = Long.MIN_VALUE
 	for (line in intervalLines) {
 		val (low, high) = line.split("-").map { it.toLong() }
 		tree.insert(Interval(low, high))
+		if (low < min) min = low
+		if (high > max) max = high
 	}
 
-	var answer = 0
-	// Each iteration of the root counts exactly one valid ID
-	while (tree.root != null) {
-		++answer
-		val interval = tree.peek()
-		// SAFETY: interval is only null if tree.root is null,
-		// so we can safely assert it
-		val n = interval!!.low
-		// This loop removes all elements of `tree`
-		// which contain `n`, but leaves all other integers
-		// contained in exactly the same number of intervals.
-		while (true) {
-			val r = tree.overlapsAny(n) ?: break
-			val (lo, hi) = interval.splitAt(n)
-			tree.delete(r)
-			if (lo != null) {
-				tree.insert(lo)
-			}
-			if (hi != null) {
-				tree.insert(hi)
-			}
-		}
+	var count = 0L
+	for (i in min..max) {
+		if (tree.overlapsAny(i) != null) count++
 	}
-
-	println("Answer: $answer valid IDs")
+	println("Answer: $count")
 }
 
 object TestCasePartOne {
