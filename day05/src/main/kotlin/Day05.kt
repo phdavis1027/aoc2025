@@ -22,7 +22,6 @@ fun partTwo(input: List<String>) {
 		val (low, high) = line.split("-").map { it.toLong() }
 		tree.insert(Interval(low, high))
 	}
-
 	val answer = tree.sumLengths()
 	println("Answer: $answer")
 }
