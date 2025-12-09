@@ -11,7 +11,6 @@ int32_t open_file(const char* path) {
     return current_file ? 0 : -1;
 }
 
-// Reads into caller-provided buffer, returns bytes read or -1 on EOF
 int64_t read_line(char* buf, int64_t buf_len) {
     if (!current_file) return -1;
     if (!fgets(buf, buf_len, current_file)) return -1;
@@ -37,9 +36,7 @@ void init_scan_vecs(void) {
     dot_vec = _mm256_set1_epi8('.');
 }
 
-// static int debug_line_count = 0;
-
-int32_t scan_line_pair(
+int32_t scan_line_pair_part_one(
     const char* prev_buf,
     char* curr_buf,
     int64_t lineLen,
@@ -63,7 +60,6 @@ int32_t scan_line_pair(
         __m256i dot_cmp = _mm256_cmpeq_epi8(curr_data, dot_vec);
 
         __m256i fill_mask = _mm256_and_si256(pipe_cmp, dot_cmp);
-		// Flood | -- write '|' to every byte in current data that was '.' before
         __m256i new_data = _mm256_blendv_epi8(curr_data, pipe_vec, fill_mask);
         _mm256_storeu_si256((__m256i*)(curr_buf + offset), new_data);
 
@@ -98,4 +94,105 @@ int32_t scan_line_pair(
 
     return __builtin_popcountll(aligned[0]) + __builtin_popcountll(aligned[1]) +
            __builtin_popcountll(aligned[2]) + __builtin_popcountll(aligned[3]);
+}
+
+int64_t scan_line_pair_part_two(
+    const char* prev_buf,
+    char* curr_buf,
+    int64_t lineLen,
+    const int64_t* prev_paths,
+    int64_t* curr_paths
+) {
+    // Zero out curr_paths
+    for (int64_t i = 0; i < lineLen; i++) {
+        curr_paths[i] = 0;
+    }
+
+    uint64_t pipe_mask[4] = {0, 0, 0, 0};
+    uint64_t caret_mask[4] = {0, 0, 0, 0};
+
+    for (int64_t chunk = 0; chunk * 32 < lineLen; ++chunk) {
+        int64_t offset = chunk * 32;
+        int word_idx = chunk >> 1;
+        int shift = (chunk & 1) * 32;
+
+        __m256i prev_data = _mm256_loadu_si256((const __m256i*)(prev_buf + offset));
+        __m256i curr_data = _mm256_loadu_si256((const __m256i*)(curr_buf + offset));
+
+        __m256i pipe_cmp = _mm256_cmpeq_epi8(prev_data, pipe_vec);
+        __m256i caret_cmp = _mm256_cmpeq_epi8(curr_data, caret_vec);
+        __m256i dot_cmp = _mm256_cmpeq_epi8(curr_data, dot_vec);
+
+        __m256i fill_mask = _mm256_and_si256(pipe_cmp, dot_cmp);
+        __m256i new_data = _mm256_blendv_epi8(curr_data, pipe_vec, fill_mask);
+        _mm256_storeu_si256((__m256i*)(curr_buf + offset), new_data);
+
+        uint32_t pipe_bits = (uint32_t)_mm256_movemask_epi8(pipe_cmp);
+        uint32_t caret_bits = (uint32_t)_mm256_movemask_epi8(caret_cmp);
+        pipe_mask[word_idx] |= ((uint64_t)pipe_bits) << shift;
+        caret_mask[word_idx] |= ((uint64_t)caret_bits) << shift;
+    }
+
+    uint64_t aligned[4] = {
+        pipe_mask[0] & caret_mask[0],
+        pipe_mask[1] & caret_mask[1],
+        pipe_mask[2] & caret_mask[2],
+        pipe_mask[3] & caret_mask[3]
+    };
+
+    uint64_t neighbors[4] = {
+        (aligned[0] >> 1) | (aligned[0] << 1) | (aligned[1] << 63),
+        (aligned[1] >> 1) | (aligned[1] << 1) | (aligned[0] >> 63) | (aligned[2] << 63),
+        (aligned[2] >> 1) | (aligned[2] << 1) | (aligned[1] >> 63) | (aligned[3] << 63),
+        (aligned[3] >> 1) | (aligned[3] << 1) | (aligned[2] >> 63)
+    };
+
+    for (int w = 0; w < 4; w++) {
+        uint64_t m = neighbors[w] & ~caret_mask[w];
+        while (m) {
+            int idx = w * 64 + __builtin_ctzll(m);
+            curr_buf[idx] = '|';
+            m &= (m - 1);
+        }
+    }
+
+    for (int w = 0; w < 4; w++) {
+        uint64_t m = aligned[w];
+        while (m) {
+            int bit = __builtin_ctzll(m);
+            int idx = w * 64 + bit;
+            int64_t paths_here = prev_paths[idx];
+
+            if (idx > 0) {
+                curr_paths[idx - 1] += paths_here;
+            }
+            if (idx < lineLen - 1) {
+                curr_paths[idx + 1] += paths_here;
+            }
+            m &= (m - 1);
+        }
+    }
+
+    uint64_t straight[4] = {
+        pipe_mask[0] & ~caret_mask[0],
+        pipe_mask[1] & ~caret_mask[1],
+        pipe_mask[2] & ~caret_mask[2],
+        pipe_mask[3] & ~caret_mask[3]
+    };
+
+    for (int w = 0; w < 4; w++) {
+        uint64_t m = straight[w];
+        while (m) {
+            int bit = __builtin_ctzll(m);
+            int idx = w * 64 + bit;
+            curr_paths[idx] += prev_paths[idx];
+            m &= (m - 1);
+        }
+    }
+
+    int64_t total = 0;
+    for (int64_t i = 0; i < lineLen; i++) {
+        total += curr_paths[i];
+    }
+    return total;
 }
