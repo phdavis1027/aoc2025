@@ -3,3 +3,5 @@ build/
 .idea/
 **/*.txt
 *.iml
+**.mp4
+**.svg
