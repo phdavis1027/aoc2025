@@ -4,8 +4,6 @@ fun partOne(input: List<String>, numConnections: Int) {
 		Point(x, y, z)
 	}.toList().toThreeDTree()
 
-	// Min-heap: (point, (kth nearest neighbor, k))
-	// Ordered by distance from point to its kth nearest neighbor
 	val heap = java.util.PriorityQueue<Pair<Point, Pair<Point, Int>>>(
 		compareBy { it.first.distSq(it.second.first) }
 	)
