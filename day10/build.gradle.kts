@@ -49,3 +49,11 @@ tasks.register<JavaExec>("solvePartTwo") {
 	standardOutput = System.out
 	errorOutput = System.err
 }
+
+tasks.register<JavaExec>("compareExpansions") {
+	dependsOn("classes")
+	mainClass.set("CompareExpansions")
+	classpath = sourceSets["main"].runtimeClasspath
+	standardOutput = System.out
+	errorOutput = System.err
+}

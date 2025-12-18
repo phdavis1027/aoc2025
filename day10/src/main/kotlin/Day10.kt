@@ -28,12 +28,38 @@ fun getRealValue(value: UInt, targetBits: Int): UInt =
 fun hammingDistance(left: Value, right: Value): Int =
     (left xor right).bits.countOneBits()
 
-fun processMachine(machine: Machine): Long {
-    val maxBitsPerMask = machine.masks.maxOf { it.bits.countOneBits() }
+data class SearchResult(val cost: Long, val expansions: Int)
 
+fun processMachine(machine: Machine, useHeuristic: Boolean = true): SearchResult {
     fun heuristic(v: Value): Int {
-        val h = hammingDistance(v, machine.target)
-        return (h + maxBitsPerMask - 1) / maxBitsPerMask  // ceil(h / maxBitsPerMask)
+        if (!useHeuristic) return 0
+
+        var remaining = (v xor machine.target).bits
+        if (remaining == 0u) return 0
+
+        var count = 0
+        while (remaining != 0u) {
+            // Optimistically: pick mask covering most remaining wrong bits
+            val bestCoverage = machine.masks.maxOf { mask ->
+                (mask.bits and remaining).countOneBits()
+            }
+            if (bestCoverage == 0) return Int.MAX_VALUE
+
+            // Remove bestCoverage bits from remaining (optimistic assumption)
+            var toRemove = bestCoverage
+            var newRemaining = remaining
+            var bit = 0
+            while (toRemove > 0 && bit < 32) {
+                if (remaining and (1u shl bit) != 0u) {
+                    newRemaining = newRemaining xor (1u shl bit)
+                    toRemove--
+                }
+                bit++
+            }
+            remaining = newRemaining
+            count++
+        }
+        return count
     }
 
     val gScore = mutableMapOf<Value, Int>()
@@ -46,11 +72,13 @@ fun processMachine(machine: Machine): Long {
         fScore.getOrDefault(a, Int.MAX_VALUE).compareTo(fScore.getOrDefault(b, Int.MAX_VALUE))
     }
 
+    var expansions = 0
     openSet.add(Value(0U))
     while (openSet.isNotEmpty()) {
         val current = openSet.poll()
+        expansions++
         if (current == machine.target) {
-			return gScore[current]!!.toLong()
+			return SearchResult(gScore[current]!!.toLong(), expansions)
 		}
 
 		machine.masks.map { it xor current }.forEach { neighbor ->
@@ -65,7 +93,7 @@ fun processMachine(machine: Machine): Long {
             }
 		}
     }
-    return 0L
+    return SearchResult(0L, expansions)
 }
 
 private val lineRegex = Regex("""\[([#.]+)\](.*)""")
@@ -96,7 +124,7 @@ fun partOne(input: List<String>) {
         .filter { it.isNotBlank() }
         .map { parseLine(it) }
         .parallelStream()
-        .mapToLong { processMachine(it) }
+        .mapToLong { processMachine(it).cost }
         .sum()
 
     println("Answer: $total")
@@ -149,4 +177,35 @@ object SolvePartTwo {
                 .trim()
                 .lines()
         )
+}
+
+object CompareExpansions {
+    @JvmStatic
+    fun main(args: Array<String>) {
+        val machines = File("day10/src/input.txt")
+            .readText()
+            .trim()
+            .lines()
+            .filter { it.isNotBlank() }
+            .map { parseLine(it) }
+
+        var totalAstar = 0L
+        var totalBfs = 0L
+
+        for (machine in machines) {
+            val astarResult = processMachine(machine, useHeuristic = true)
+            val bfsResult = processMachine(machine, useHeuristic = false)
+
+            totalAstar += astarResult.expansions
+            totalBfs += bfsResult.expansions
+
+            require(astarResult.cost == bfsResult.cost) {
+                "Mismatch: A*=${astarResult.cost}, BFS=${bfsResult.cost}"
+            }
+        }
+
+        println("A* expansions:  $totalAstar")
+        println("BFS expansions: $totalBfs")
+        println("Reduction: %.2fx fewer expansions".format(totalBfs.toDouble() / totalAstar))
+    }
 }
